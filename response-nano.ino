@@ -10,6 +10,15 @@
 #include <FS.h>
 #include <SPIFFS.h>
 
+//Internal ESP32 temperature sensor readout code
+#ifdef __cplusplus
+  extern "C" {
+#endif
+  uint8_t temprature_sens_read();
+#ifdef __cplusplus
+}
+#endif
+
 //Hardware library objects
 Adafruit_BMP085 bmp;
 
@@ -94,13 +103,27 @@ void shell_task(void* args){
                 //Print an error
                 Serial.println("error: file does not exist");
             }
+        } else if(cmd == "baro"){
+            //Read the barometer
+            float temp = bmp.readTemperature();
+            int pressure = bmp.readPressure();
+            float alt = bmp.readAltitude();
+            Serial.printf("Temperature: %3.1f\t\tPressure: %i\t\tAltitude: %5.1f\n", temp, pressure, alt);
+        } else if(cmd == "espsns"){
+            //Read the ESP sensors
+            int hall = hallRead();
+            int temp = temprature_sens_read();
+            float temp_celsius = ((float)temp - 32.0f) / 1.8;
+            Serial.printf("Hall Sensor: %i\t\tTemperature: %3.1f\n", hall, temp);
+        } else {
+            Serial.println("Unrecognized command");
         }
     }
 }
 
 void rn_abort(String message, String file, int line){
     //Error out
-    //(worse case scenario, hopefully this will not happen during flight :<)
+    //(worst case scenario, hopefully this will not happen during flight :<)
     Serial.println(F("---=== RESPONSE NANO CRASH REPORT ===---"));
 
     Serial.print(F("An unrecovable error has occured in the firmware at the following location:\n  in file "));
