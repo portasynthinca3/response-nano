@@ -1,6 +1,9 @@
 //Response Nano Firmware
 //By portasynthinca3 for Lithium Aerospace
 
+#ifndef DEFS_H
+#define DEFS_H
+
 //System-wide necessary definitions
 #ifndef NULL
 #define NULL ((void*)0)
@@ -21,3 +24,16 @@
 #define STATE_IDLE                                  0
 #define STATE_CRASH                                 1
 #define STATE_FLIGHT                                2
+
+//Structures
+typedef struct {
+    char name[32];
+    uint8_t type;
+} __attribute__((packed)) rfd_field_t;
+
+//RFD data types
+#define RFD_TYPE_INT                                0
+#define RFD_TYPE_FLOAT                              1
+#define RFD_TYPE_STRING                             2
+
+#endif

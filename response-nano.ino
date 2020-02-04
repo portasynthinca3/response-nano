@@ -42,6 +42,14 @@ String split_str(String data, char separator, int index){
     return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
+int count_chars_str(String data, char c){
+    int cnt = 0;
+    for(int i = 0; i < data.length(); i++)
+        if(data.charAt(i) == c)
+            cnt++;
+    return cnt;
+}
+
 void led_pulse(int level, uint32_t time){
     //Set a level on the LED pin
     //(it's active low, so invert)
@@ -107,6 +115,34 @@ void shell_task(void* args){
                 //Print an error
                 Serial.println("error: file does not exist");
             }
+        } else if(cmd == "viewhex"){
+            //Get the filename from command
+            String fn = split_str(input, ' ', 1);
+            //Check if this file exists
+            if(SPIFFS.exists(fn)){
+                //Open it
+                File f = SPIFFS.open(fn, FILE_READ);
+                Serial.printf("[File size: %i]\n", f.size());
+                //Read it
+                f.seek(0);
+                char buffer[1024];
+                while(f.available()){
+                    int rd = f.readBytes(buffer, 1024);
+                    for(int i = 0; i < rd; i++){
+                        uint8_t byte = buffer[i];
+                        Serial.printf("%X%X ", byte / 16, byte % 16);
+                        if(i % 16 == 7)
+                            Serial.print(" ");
+                        if(i % 16 == 15)
+                            Serial.println();
+                    }
+                }
+                Serial.println();
+                f.close();
+            } else {
+                //Print an error
+                Serial.println("error: file does not exist");
+            }
         } else if(cmd == "baro"){
             //Read the barometer
             float temp = bmp.readTemperature();
@@ -125,6 +161,15 @@ void shell_task(void* args){
             //Set the state
             global_state = state_str.toInt();
             Serial.printf("State successfully changed to %i\n", global_state);
+        } else if(cmd == "rfdb"){
+            rfd_begin("/rfd_test", "acc_x:float acc_y:float acc_z:float gyro_x:float gyro_y:float gyro_z:float baro_height:float pyro0:int hall:int baro_temp:int");
+            Serial.println("RFD begin");
+        } else if(cmd == "rfde"){
+            rfd_end();
+            Serial.println("RFD end");
+        } else if(cmd == "rfdevt"){
+            rfd_event("Event!");
+            Serial.println("RFD event");
         } else {
             Serial.println("Unrecognized command");
         }
