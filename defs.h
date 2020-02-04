@@ -20,3 +20,4 @@
 //State definitions
 #define STATE_IDLE                                  0
 #define STATE_CRASH                                 1
+#define STATE_FLIGHT                                2

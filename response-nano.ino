@@ -67,6 +67,10 @@ void led_blink_task(void* args){
                     led_pulse(LOW, 250);
                 }
                 delay(1000);
+            case STATE_FLIGHT:
+                led_pulse(HIGH, 500);
+                led_pulse(LOW, 500);
+                break;
                 break;
         }
     }
@@ -115,6 +119,12 @@ void shell_task(void* args){
             int temp = temprature_sens_read();
             float temp_celsius = ((float)temp - 32.0f) / 1.8;
             Serial.printf("Hall Sensor: %i\t\tTemperature: %3.1f\n", hall, temp);
+        } else if(cmd == "state"){
+            //Read the argument
+            String state_str = split_str(input, ' ', 1);
+            //Set the state
+            global_state = state_str.toInt();
+            Serial.printf("State successfully changed to %i\n", global_state);
         } else {
             Serial.println("Unrecognized command");
         }
