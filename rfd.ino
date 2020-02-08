@@ -13,7 +13,7 @@ File rfd_file;
 //The current field scheme
 rfd_field_t* rfd_scheme;
 //The current field count
-uint32_t rfd_f_count;
+uint32_t rfd_f_count = 0;
 //The write task handle
 TaskHandle_t wrt_task_handle;
 //The last time logging task wrote something
@@ -79,6 +79,66 @@ void rfd_begin(String filename, String scheme){
     xTaskCreateUniversal(&wrt_task, "RFDWriteTask", 8192, NULL, 5, &wrt_task_handle, 0);
 }
 
+void rfd_print(String filename){
+    //Open the file
+    rfd_file = SPIFFS.open(filename);
+    //Check the header
+    char temp[4];
+    rfd_file.readBytes(temp, 4);
+    if(memcmp(temp, "RFD0", 4) != 0){
+        rfd_file.close();
+        Serial.println("error: not an RFD version 0 file");
+        return;
+    }
+    //Read the field count
+    int f_count = rfd_file.read();
+    Serial.println(String(f_count) + " fields");
+    //Allocate some memory for the scheme
+    rfd_scheme = (rfd_field_t*)malloc(f_count * sizeof(rfd_field_t));
+    //Parse the scheme
+    for(int i = 0; i < f_count; i++){
+        //Read name and type
+        rfd_file.read((uint8_t*)rfd_scheme[i].name, 32);
+        rfd_scheme[i].type = rfd_file.read();
+        //Parse type
+        String type_str = "unknown";
+        if(rfd_scheme[i].type == RFD_TYPE_INT)
+            type_str = "int";
+        if(rfd_scheme[i].type == RFD_TYPE_FLOAT)
+            type_str = "float";
+        //Display info
+        Serial.print(rfd_scheme[i].name);
+        Serial.print(" (" + type_str + ")\t");
+    }
+    Serial.println();
+    //While the end of the file hadn't been reached
+    while(rfd_file.available()){
+        //Read marker
+        rfd_file.read();
+        //Field by field
+        for(int i = 0; i < f_count; i++){
+            //Conversion
+            union {
+                uint8_t f_raw_data[4];
+                float f_f;
+                int f_i;
+            } f_data;
+            //Read four bytes
+            rfd_file.read(f_data.f_raw_data, 4);
+            //Depending on the type, print different values
+            if(rfd_scheme[i].type == RFD_TYPE_INT)
+                Serial.printf("%i\t\t", f_data.f_i);
+            if(rfd_scheme[i].type == RFD_TYPE_FLOAT)
+                Serial.printf("%5.2f\t\t", f_data.f_f);
+        }
+        Serial.println();
+    }
+    //Close the file
+    rfd_file.close();
+    //Free the memory used by the scheme
+    free(rfd_scheme);
+}
+
 void rfd_set_field(String field, uint32_t val){
     //Scan the field list
     for(int i = 0; i < rfd_f_count; i++){
@@ -104,4 +164,6 @@ void rfd_end(){
     vTaskDelete(wrt_task_handle);
     //Close the file
     rfd_file.close();
+    //Free the memory used by the scheme
+    free(rfd_scheme);
 }

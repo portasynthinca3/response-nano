@@ -6,7 +6,9 @@
 //Include the libraries
 #include "defs.h"
 #include <Wire.h>
+#include <Adafruit_Sensor.h>
 #include <Adafruit_BMP085.h>
+#include <Adafruit_MPU6050.h>
 #include <FS.h>
 #include <SPIFFS.h>
 
@@ -21,6 +23,7 @@
 
 //Hardware library objects
 Adafruit_BMP085 bmp;
+Adafruit_MPU6050 mpu;
 
 //Global computer state
 uint32_t global_state;
@@ -75,10 +78,10 @@ void led_blink_task(void* args){
                     led_pulse(LOW, 250);
                 }
                 delay(1000);
+                break;
             case STATE_FLIGHT:
                 led_pulse(HIGH, 500);
                 led_pulse(LOW, 500);
-                break;
                 break;
         }
     }
@@ -86,10 +89,48 @@ void led_blink_task(void* args){
 
 void sensor_task(void* args){
     while(1){
+        float temp_flt; //a temporary variable to store float values
+
+        //Read IMU data
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp);
+        //Write IMU data
+        rfd_set_field("acc_x", *(uint32_t*)&(temp_flt = a.acceleration.x));
+        rfd_set_field("acc_y", *(uint32_t*)&(temp_flt = a.acceleration.y));
+        rfd_set_field("acc_z", *(uint32_t*)&(temp_flt = a.acceleration.z));
+        rfd_set_field("gyro_x", *(uint32_t*)&(temp_flt = g.gyro.x * 57.29578)); //This magic number here
+        rfd_set_field("gyro_y", *(uint32_t*)&(temp_flt = g.gyro.y * 57.29578)); //  converts radians to degrees
+        rfd_set_field("gyro_z", *(uint32_t*)&(temp_flt = g.gyro.z * 57.29578));
+        rfd_set_field("imu_temp", *(uint32_t*)&(temp_flt = temp.temperature));
+
         //Write hall sensor value
         rfd_set_field("hall", hallRead());
-        delay(500);
+
+        //Write barometer data
+        rfd_set_field("baro_height", *(uint32_t*)&(temp_flt = bmp.readAltitude()));
     }
+}
+
+void flight_begin(){
+    //Try to find a filename that's not taken
+    int file_no = 0;
+    for(int i = 1; i < 10000; i++){
+        if(!SPIFFS.exists("/flight_" + i)){
+            file_no = i;
+            break;
+        }
+    }
+    //Begin RFD file
+    rfd_begin("/flight_", settings_read_value("rfd_format"));
+    //Set the state to "flight"
+    global_state = STATE_FLIGHT;
+}
+
+void flight_end(){
+    //End RFD file
+    rfd_end();
+    //Set the state to "idle"
+    global_state = STATE_IDLE;
 }
 
 void shell_task(void* args){
@@ -151,12 +192,21 @@ void shell_task(void* args){
                 //Print an error
                 Serial.println("error: file does not exist");
             }
+        } else if(cmd == "rm"){
+            //Get the filename from command
+            String fn = split_str(input, ' ', 1);
+            //Check if this file exists
+            if(SPIFFS.exists(fn)){
+                //Remove it
+                SPIFFS.remove(fn);
+            } else {
+                //Print an error
+                Serial.println("error: file does not exist");
+            }
         } else if(cmd == "baro"){
             //Read the barometer
-            float temp = bmp.readTemperature();
-            int pressure = bmp.readPressure();
             float alt = bmp.readAltitude();
-            Serial.printf("Temperature: %3.1f\t\tPressure: %i\t\tAltitude: %5.1f\n", temp, pressure, alt);
+            Serial.printf("Altitude: %5.1f\n", alt);
         } else if(cmd == "espsns"){
             //Read the ESP sensors
             int hall = hallRead();
@@ -180,6 +230,8 @@ void shell_task(void* args){
         } else if(cmd == "rfdevt"){
             rfd_event("Event!");
             Serial.println("RFD event");
+        } else if(cmd == "rfdv"){
+            rfd_print("/rfd_test");
         } else {
             Serial.println("Unrecognized command");
         }
@@ -221,6 +273,11 @@ void setup(){
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
     if(!bmp.begin())
         rn_abort("Barometer initialization failed", __FILE__, __LINE__);
+    if(!mpu.begin())
+        rn_abort("IMU initialization failed", __FILE__, __LINE__);
+    mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+    mpu.setGyroRange(MPU6050_RANGE_2000_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_10_HZ);
     if(!SPIFFS.begin(true))
         rn_abort("SPIFFS initialization failed", __FILE__, __LINE__);
 
