@@ -212,6 +212,8 @@ void setup(){
     if(!SPIFFS.begin(true))
         rn_abort("SPIFFS initialization failed", __FILE__, __LINE__);
 
+    SPIFFS.remove(SETTINGS_FILE);
+
     if(!SPIFFS.exists(SETTINGS_FILE)){
         Serial.println("No settings file, creating");
         File f = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
