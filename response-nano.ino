@@ -84,6 +84,14 @@ void led_blink_task(void* args){
     }
 }
 
+void sensor_task(void* args){
+    while(1){
+        //Write hall sensor value
+        rfd_set_field("hall", hallRead());
+        delay(500);
+    }
+}
+
 void shell_task(void* args){
     while(1){
         Serial.print(F("shell>"));
@@ -162,17 +170,21 @@ void shell_task(void* args){
             global_state = state_str.toInt();
             Serial.printf("State successfully changed to %i\n", global_state);
         } else if(cmd == "rfdb"){
-            rfd_begin("/rfd_test", "acc_x:float acc_y:float acc_z:float gyro_x:float gyro_y:float gyro_z:float baro_height:float pyro0:int hall:int baro_temp:int");
+            rfd_begin("/rfd_test", settings_read_value("rfd_format"));
             Serial.println("RFD begin");
+            global_state = STATE_FLIGHT;
         } else if(cmd == "rfde"){
             rfd_end();
             Serial.println("RFD end");
+            global_state = STATE_IDLE;
         } else if(cmd == "rfdevt"){
             rfd_event("Event!");
             Serial.println("RFD event");
         } else {
             Serial.println("Unrecognized command");
         }
+        //Delay a little bit
+        delay(200);
     }
 }
 
@@ -223,7 +235,8 @@ void setup(){
 
     //Create a serial shell task
     xTaskCreateUniversal(&shell_task, "ShellTask", 8192, NULL, 6, NULL, 1);
+    //Create a sensor readout task
+    xTaskCreateUniversal(&sensor_task, "SensorTask", 8192, NULL, 6, NULL, 1);
 }
 
-void loop(){
-}
+void loop(){}
