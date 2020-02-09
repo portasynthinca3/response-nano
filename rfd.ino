@@ -92,7 +92,6 @@ void rfd_print(String filename){
     }
     //Read the field count
     int f_count = rfd_file.read();
-    Serial.println(String(f_count) + " fields");
     //Allocate some memory for the scheme
     rfd_scheme = (rfd_field_t*)malloc(f_count * sizeof(rfd_field_t));
     //Parse the scheme
@@ -108,7 +107,7 @@ void rfd_print(String filename){
             type_str = "float";
         //Display info
         Serial.print(rfd_scheme[i].name);
-        Serial.print(" (" + type_str + ")\t");
+        Serial.print(" (" + type_str + ");");
     }
     Serial.println();
     //While the end of the file hadn't been reached
@@ -127,9 +126,9 @@ void rfd_print(String filename){
             rfd_file.read(f_data.f_raw_data, 4);
             //Depending on the type, print different values
             if(rfd_scheme[i].type == RFD_TYPE_INT)
-                Serial.printf("%i\t\t", f_data.f_i);
+                Serial.printf("%i;", f_data.f_i);
             if(rfd_scheme[i].type == RFD_TYPE_FLOAT)
-                Serial.printf("%5.2f\t\t", f_data.f_f);
+                Serial.printf("%5.2f;", f_data.f_f);
         }
         Serial.println();
     }
@@ -140,13 +139,15 @@ void rfd_print(String filename){
 }
 
 void rfd_set_field(String field, uint32_t val){
-    //Scan the field list
-    for(int i = 0; i < rfd_f_count; i++){
-        //Check if names are equal
-        if(memcmp(rfd_scheme[i].name, field.c_str(), field.length()) == 0){
-            //Set the value
-            rfd_scheme[i].value = val;
-            return;
+    if(rfd_file){
+        //Scan the field list
+        for(int i = 0; i < rfd_f_count; i++){
+            //Check if names are equal
+            if(memcmp(rfd_scheme[i].name, field.c_str(), field.length()) == 0){
+                //Set the value
+                rfd_scheme[i].value = val;
+                return;
+            }
         }
     }
 }
